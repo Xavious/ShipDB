@@ -1,6 +1,6 @@
 # ShipDB
 
-**A comprehensive ship tracking and docking history system for Mudlet**
+**A comprehensive ship tracking and docking history system, Mudlet package, for Legends of the Jedi**
 
 ShipDB automatically captures ship information when you locate vessels in-game, maintaining both a master ship registry and complete docking history. Track ship movements, filter by any criteria, and analyze patterns across all your discoveries.
 
