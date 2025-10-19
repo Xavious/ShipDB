@@ -26,7 +26,7 @@ ShipDB automatically captures ship information when you locate vessels in-game, 
 
 ### 📝 Docking History
 - **Automatic recording** of every ship lookup
-- **Per-ship history** - Right-click ship name to view complete movement log
+- **Per-ship history** - Click a ship name to view complete docking history
 - **All history view** - See every docking record across all ships
 - **Character segmentation** - Each character maintains separate records
 
