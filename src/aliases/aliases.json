@@ -1,0 +1,51 @@
+[
+       {
+              "name": "showShips",
+              "isActive": "yes",
+              "regex": "^showships$",
+              "script": "",
+              "isFolder": "no"
+       },
+       {
+              "name": "hideShips",
+              "isActive": "yes",
+              "regex": "^hideships$",
+              "script": "",
+              "isFolder": "no"
+       },
+       {
+              "name": "debug",
+              "isActive": "yes",
+              "regex": "^shipdbdebug ([0-1])$",
+              "script": "",
+              "isFolder": "no"
+       },
+       {
+              "name": "shipdbSort",
+              "isActive": "yes",
+              "regex": "^shipdb sort (?<column>.+)$",
+              "script": "",
+              "isFolder": "no"
+       },
+       {
+              "name": "shipdbFilter",
+              "isActive": "yes",
+              "regex": "^shipdb filter (?<filter>.+)$",
+              "script": "",
+              "isFolder": "no"
+       },
+       {
+              "name": "shipdbClear",
+              "isActive": "yes",
+              "regex": "^shipdb clear$",
+              "script": "",
+              "isFolder": "no"
+       },
+       {
+              "name": "shipdbHelp",
+              "isActive": "yes",
+              "regex": "^shipdb help$",
+              "script": "",
+              "isFolder": "no"
+       }
+]

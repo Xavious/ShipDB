@@ -1,0 +1,1 @@
+shipdb.clearSearch()
