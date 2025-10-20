@@ -12,6 +12,10 @@ shipdb.config = shipdb.config or {
   -- Search/filter settings
   search_filter = "",
 
+  -- Pagination settings
+  records_per_page = 100,
+  current_page = 1,
+
   -- View state settings
   view_mode = "ships",      -- "ships" or "history"
   history_ship = nil,       -- Ship name when viewing history
@@ -74,10 +78,24 @@ shipdb.config = shipdb.config or {
       height = "8.55%",
       font_size = 10
     },
-    info_label = {
+    page_prev = {
       x = "56%",
       y = "3%",
-      width = "44%",
+      width = "3.5%",
+      height = "8.55%",
+      font_size = 10
+    },
+    page_next = {
+      x = "59.5%",
+      y = "3%",
+      width = "3.5%",
+      height = "8.55%",
+      font_size = 10
+    },
+    info_label = {
+      x = "64%",
+      y = "3%",
+      width = "36%",
       height = "8.55%",
       font_size = 10
     },
@@ -235,6 +253,7 @@ shipdb.search_box = Geyser.CommandLine:new({
 -- Set up search box behavior
 shipdb.search_box:setAction(function(input)
   shipdb.config.search_filter = input:lower()
+  shipdb.config.current_page = 1  -- Reset pagination when searching
   shipdb.updateWindow()
 end)
 
@@ -298,6 +317,64 @@ shipdb.toggle_history:setClickCallback(function()
   shipdb.viewAllHistory()
 end)
 
+-- Create Previous Page button
+shipdb.page_prev = Geyser.Label:new({
+  name = "shipdb_page_prev",
+  x = shipdb.config.ui.page_prev.x,
+  y = shipdb.config.ui.page_prev.y,
+  width = shipdb.config.ui.page_prev.width,
+  height = shipdb.config.ui.page_prev.height,
+  fontSize = shipdb.config.ui.page_prev.font_size
+}, shipdb.container)
+
+shipdb.page_prev:setStyleSheet([[
+  QLabel {
+    background-color: rgba(64, 68, 75, 100%);
+    border: 1px solid rgb(32, 34, 37);
+    color: rgb(255, 255, 255);
+    font-size: 10pt;
+    font-weight: bold;
+    qproperty-alignment: 'AlignCenter';
+  }
+  QLabel:hover {
+    background-color: rgba(80, 85, 95, 100%);
+    border: 1px solid rgb(100, 105, 115);
+  }
+]])
+shipdb.page_prev:echo("◄")
+shipdb.page_prev:setClickCallback(function()
+  shipdb.previousPage()
+end)
+
+-- Create Next Page button
+shipdb.page_next = Geyser.Label:new({
+  name = "shipdb_page_next",
+  x = shipdb.config.ui.page_next.x,
+  y = shipdb.config.ui.page_next.y,
+  width = shipdb.config.ui.page_next.width,
+  height = shipdb.config.ui.page_next.height,
+  fontSize = shipdb.config.ui.page_next.font_size
+}, shipdb.container)
+
+shipdb.page_next:setStyleSheet([[
+  QLabel {
+    background-color: rgba(64, 68, 75, 100%);
+    border: 1px solid rgb(32, 34, 37);
+    color: rgb(255, 255, 255);
+    font-size: 10pt;
+    font-weight: bold;
+    qproperty-alignment: 'AlignCenter';
+  }
+  QLabel:hover {
+    background-color: rgba(80, 85, 95, 100%);
+    border: 1px solid rgb(100, 105, 115);
+  }
+]])
+shipdb.page_next:echo("►")
+shipdb.page_next:setClickCallback(function()
+  shipdb.nextPage()
+end)
+
 -- Function to update toggle button styles based on active view
 function shipdb.updateToggleStyles()
   local active_style = [[
@@ -337,6 +414,49 @@ end
 
 -- Initial style update
 shipdb.updateToggleStyles()
+
+-- Function to update pagination button styles based on availability
+function shipdb.updatePaginationStyles(current_page, total_pages)
+  local active_style = [[
+    QLabel {
+      background-color: rgba(64, 68, 75, 100%);
+      border: 1px solid rgb(32, 34, 37);
+      color: rgb(255, 255, 255);
+      font-size: 10pt;
+      font-weight: bold;
+      qproperty-alignment: 'AlignCenter';
+    }
+    QLabel:hover {
+      background-color: rgba(80, 85, 95, 100%);
+      border: 1px solid rgb(100, 105, 115);
+    }
+  ]]
+
+  local disabled_style = [[
+    QLabel {
+      background-color: rgba(80, 85, 95, 100%);
+      border: 1px solid rgb(100, 105, 115);
+      color: rgb(150, 150, 150);
+      font-size: 10pt;
+      font-weight: bold;
+      qproperty-alignment: 'AlignCenter';
+    }
+  ]]
+
+  -- Update previous button
+  if current_page <= 1 then
+    shipdb.page_prev:setStyleSheet(disabled_style)
+  else
+    shipdb.page_prev:setStyleSheet(active_style)
+  end
+
+  -- Update next button
+  if current_page >= total_pages then
+    shipdb.page_next:setStyleSheet(disabled_style)
+  else
+    shipdb.page_next:setStyleSheet(active_style)
+  end
+end
 
 -- Create info label for messages
 shipdb.info_label = Geyser.Label:new({
@@ -404,6 +524,7 @@ function shipdb.viewShips()
   shipdb.debug("shipdb.viewShips")
   shipdb.config.view_mode = "ships"
   shipdb.config.history_ship = nil
+  shipdb.config.current_page = 1  -- Reset pagination
   shipdb.updateToggleStyles()
   shipdb.updateWindow()
 end
@@ -413,6 +534,7 @@ function shipdb.viewAllHistory()
   shipdb.debug("shipdb.viewAllHistory")
   shipdb.config.view_mode = "history"
   shipdb.config.history_ship = nil  -- nil means show ALL history
+  shipdb.config.current_page = 1  -- Reset pagination
   shipdb.updateToggleStyles()
   shipdb.updateWindow()
 end
@@ -423,6 +545,7 @@ function shipdb.viewShipHistory(shipName)
   shipdb.config.view_mode = "history"
   shipdb.config.history_ship = shipName  -- Set specific ship to filter
   shipdb.config.search_filter = ""  -- Clear any active search
+  shipdb.config.current_page = 1  -- Reset pagination
   shipdb.updateToggleStyles()
   shipdb.updateWindow()
 end
@@ -431,6 +554,7 @@ end
 function shipdb.setFilter(value)
   shipdb.debug("shipdb.setFilter: " .. value)
   shipdb.config.search_filter = value:lower()
+  shipdb.config.current_page = 1  -- Reset pagination when filtering
   -- Don't change view mode - filter works in current view
   shipdb.updateWindow()
 end
@@ -438,6 +562,7 @@ end
 -- Clear search filter (stay in current view)
 function shipdb.clearSearch()
   shipdb.config.search_filter = ""
+  shipdb.config.current_page = 1  -- Reset pagination
   -- If in history view and viewing a specific ship, clear that filter too
   if shipdb.config.view_mode == "history" and shipdb.config.history_ship then
     shipdb.config.history_ship = nil  -- Show all history instead of just one ship
@@ -453,6 +578,7 @@ function shipdb.sortBy(field)
   shipdb.debug("shipdb.sortBy: " .. field)
   shipdb.sort_by = field
   shipdb.sort_by_invert = shipdb.sort_by_invert * -1
+  shipdb.config.current_page = 1  -- Reset pagination when sorting
   shipdb.updateWindow()
 end
 
@@ -493,6 +619,52 @@ function shipdb.sortShips()
   return sorted_ships
 end
 
+-- Pagination helper to get paginated subset of records
+function shipdb.paginateRecords(records)
+  local total = #records
+  local per_page = shipdb.config.records_per_page
+  local current_page = shipdb.config.current_page
+
+  -- Calculate total pages
+  local total_pages = math.ceil(total / per_page)
+  if total_pages == 0 then total_pages = 1 end
+
+  -- Ensure current page is within bounds
+  if current_page < 1 then
+    current_page = 1
+    shipdb.config.current_page = 1
+  elseif current_page > total_pages then
+    current_page = total_pages
+    shipdb.config.current_page = total_pages
+  end
+
+  -- Calculate start and end indices
+  local start_idx = ((current_page - 1) * per_page) + 1
+  local end_idx = math.min(current_page * per_page, total)
+
+  -- Extract the page subset
+  local page_records = {}
+  for i = start_idx, end_idx do
+    table.insert(page_records, records[i])
+  end
+
+  return page_records, current_page, total_pages, total
+end
+
+-- Go to next page
+function shipdb.nextPage()
+  shipdb.debug("shipdb.nextPage")
+  shipdb.config.current_page = shipdb.config.current_page + 1
+  shipdb.updateWindow()
+end
+
+-- Go to previous page
+function shipdb.previousPage()
+  shipdb.debug("shipdb.previousPage")
+  shipdb.config.current_page = shipdb.config.current_page - 1
+  shipdb.updateWindow()
+end
+
 function shipdb.updateWindow()
   shipdb.debug("shipdb.updateWindow")
 
@@ -531,14 +703,37 @@ function shipdb.updateShipsView()
   local filtered_ships = shipdb.filterShips(sorted_ships, shipdb.config.search_filter)
   local filtered_count = #filtered_ships
 
-  -- Update info label with search results or total count
-  if shipdb.config.search_filter ~= "" and filtered_count < total_ships then
-    shipdb.info_label:echo(string.format("Showing %d of %d ships", filtered_count, total_ships))
-  else
-    shipdb.info_label:echo(string.format("%d ships found", total_ships))
+  -- Apply pagination
+  local page_ships, current_page, total_pages, total_filtered = shipdb.paginateRecords(filtered_ships)
+
+  -- Update pagination button styles
+  shipdb.updatePaginationStyles(current_page, total_pages)
+
+  -- Update info label with pagination and search results
+  local start_idx = ((current_page - 1) * shipdb.config.records_per_page) + 1
+  local end_idx = math.min(current_page * shipdb.config.records_per_page, filtered_count)
+
+  -- Build filter display string
+  local filter_text = ""
+  if shipdb.config.search_filter ~= "" then
+    filter_text = string.format(" | Filter: '%s'", shipdb.config.search_filter)
   end
 
-  for _, ship in ipairs(filtered_ships) do
+  if shipdb.config.search_filter ~= "" and filtered_count < total_ships then
+    shipdb.info_label:echo(string.format("Page %d/%d: Showing %d-%d of %d (filtered from %d)%s",
+      current_page, total_pages, start_idx, end_idx, filtered_count, total_ships, filter_text))
+  elseif total_pages > 1 then
+    shipdb.info_label:echo(string.format("Page %d/%d: Showing %d-%d of %d ships%s",
+      current_page, total_pages, start_idx, end_idx, total_ships, filter_text))
+  else
+    if shipdb.config.search_filter ~= "" then
+      shipdb.info_label:echo(string.format("%d ships found%s", total_ships, filter_text))
+    else
+      shipdb.info_label:echo(string.format("%d ships found", total_ships))
+    end
+  end
+
+  for _, ship in ipairs(page_ships) do
     -- Create filter functions for each field
     local filter_type = function() shipdb.setFilter(ship.type) end
     local filter_owner = function() shipdb.setFilter(ship.owner) end
@@ -771,32 +966,77 @@ function shipdb.updateHistoryView()
     end
   end)
 
+  -- Apply pagination
+  local page_records, current_page, total_pages, total_filtered = shipdb.paginateRecords(filtered_records)
+
+  -- Update pagination button styles
+  shipdb.updatePaginationStyles(current_page, total_pages)
+
+  -- Calculate display indices
+  local start_idx = ((current_page - 1) * shipdb.config.records_per_page) + 1
+  local end_idx = math.min(current_page * shipdb.config.records_per_page, filtered_count)
+
+  -- Build filter display string
+  local filter_text = ""
+  if shipdb.config.search_filter ~= "" then
+    filter_text = string.format(" | Filter: '%s'", shipdb.config.search_filter)
+  end
+
   -- Update info label based on view type
   if shipdb.config.history_ship then
     -- Single ship history
     if #filtered_records > 0 then
       local first_record = filtered_records[1]
-      if shipdb.config.search_filter ~= "" and filtered_count < total_records then
-        shipdb.info_label:echo(string.format("Docking History: %s (%s) owned by %s - Showing %d of %d records",
-          shipdb.config.history_ship, first_record.type, first_record.owner, filtered_count, total_records))
+      if total_pages > 1 then
+        if shipdb.config.search_filter ~= "" and filtered_count < total_records then
+          shipdb.info_label:echo(string.format("Page %d/%d: %s (%s) - %d-%d of %d (filtered from %d)%s",
+            current_page, total_pages, shipdb.config.history_ship, first_record.type, start_idx, end_idx, filtered_count, total_records, filter_text))
+        else
+          shipdb.info_label:echo(string.format("Page %d/%d: %s (%s) - %d-%d of %d records%s",
+            current_page, total_pages, shipdb.config.history_ship, first_record.type, start_idx, end_idx, filtered_count, filter_text))
+        end
       else
-        shipdb.info_label:echo(string.format("Docking History: %s (%s) owned by %s - %d records",
-          shipdb.config.history_ship, first_record.type, first_record.owner, #filtered_records))
+        if shipdb.config.search_filter ~= "" and filtered_count < total_records then
+          shipdb.info_label:echo(string.format("%s (%s) - Showing %d of %d records%s",
+            shipdb.config.history_ship, first_record.type, filtered_count, total_records, filter_text))
+        else
+          if shipdb.config.search_filter ~= "" then
+            shipdb.info_label:echo(string.format("%s (%s) - %d records%s",
+              shipdb.config.history_ship, first_record.type, #filtered_records, filter_text))
+          else
+            shipdb.info_label:echo(string.format("%s (%s) owned by %s - %d records",
+              shipdb.config.history_ship, first_record.type, first_record.owner, #filtered_records))
+          end
+        end
       end
     else
       shipdb.info_label:echo(string.format("Docking History: %s - No records found", shipdb.config.history_ship))
     end
   else
     -- All history view
-    if shipdb.config.search_filter ~= "" and filtered_count < total_records then
-      shipdb.info_label:echo(string.format("All Docking History - Showing %d of %d records", filtered_count, total_records))
+    if total_pages > 1 then
+      if shipdb.config.search_filter ~= "" and filtered_count < total_records then
+        shipdb.info_label:echo(string.format("Page %d/%d: All Docking History - %d-%d of %d (filtered from %d)%s",
+          current_page, total_pages, start_idx, end_idx, filtered_count, total_records, filter_text))
+      else
+        shipdb.info_label:echo(string.format("Page %d/%d: All Docking History - %d-%d of %d records%s",
+          current_page, total_pages, start_idx, end_idx, total_records, filter_text))
+      end
     else
-      shipdb.info_label:echo(string.format("All Docking History - %d records", total_records))
+      if shipdb.config.search_filter ~= "" and filtered_count < total_records then
+        shipdb.info_label:echo(string.format("All Docking History - Showing %d of %d records%s", filtered_count, total_records, filter_text))
+      else
+        if shipdb.config.search_filter ~= "" then
+          shipdb.info_label:echo(string.format("All Docking History - %d records%s", total_records, filter_text))
+        else
+          shipdb.info_label:echo(string.format("All Docking History - %d records", total_records))
+        end
+      end
     end
   end
 
   -- Add each docking record with clickable filters
-  for _, record in ipairs(filtered_records) do
+  for _, record in ipairs(page_records) do
     local filter_type = function() shipdb.setFilter(record.type) end
     local filter_name = function() shipdb.setFilter(record.name) end
     local filter_owner = function() shipdb.setFilter(record.owner) end
