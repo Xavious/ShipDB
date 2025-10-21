@@ -2,6 +2,11 @@ shipdb = shipdb or {}
 
 -- Configuration
 shipdb.config = shipdb.config or {
+  -- Version settings
+  version = "1.0.0",
+  github_repo = "Xavious/ShipDB",
+  update_check_done = false,
+
   -- Debug settings
   debug_mode = 0,
 
@@ -1057,8 +1062,320 @@ function shipdb.updateHistoryView()
   shipdb.table:assemble()
 end
 
+-- Version comparison function (semantic versioning)
+function shipdb.compareVersions(v1, v2)
+  -- Remove 'v' prefix if present
+  v1 = v1:gsub("^v", "")
+  v2 = v2:gsub("^v", "")
+
+  -- Split versions into parts
+  local v1_parts = {}
+  local v2_parts = {}
+
+  for num in v1:gmatch("%d+") do
+    table.insert(v1_parts, tonumber(num))
+  end
+
+  for num in v2:gmatch("%d+") do
+    table.insert(v2_parts, tonumber(num))
+  end
+
+  -- Compare each part
+  for i = 1, math.max(#v1_parts, #v2_parts) do
+    local v1_part = v1_parts[i] or 0
+    local v2_part = v2_parts[i] or 0
+
+    if v1_part < v2_part then
+      return -1  -- v1 is older
+    elseif v1_part > v2_part then
+      return 1   -- v1 is newer
+    end
+  end
+
+  return 0  -- versions are equal
+end
+
+-- Handle update check response
+function shipdb.handleUpdateCheck(event, filename)
+  -- Only handle our update check download
+  if not filename or not filename:match("shipdb_update_check%.json") then
+    return
+  end
+
+  -- Kill the event handler after first successful call
+  if shipdb.update_check_handler then
+    killAnonymousEventHandler(shipdb.update_check_handler)
+    shipdb.update_check_handler = nil
+  end
+
+  -- Read the downloaded JSON file
+  local file = io.open(filename, "r")
+  if not file then
+    cecho("\n[<cyan>ShipDB<reset>] <red>Update check failed - could not retrieve version info<reset>\n")
+    return
+  end
+
+  local content = file:read("*all")
+  file:close()
+
+  -- Parse JSON to extract latest release tag
+  local latest_version = content:match('"tag_name"%s*:%s*"([^"]+)"')
+
+  if not latest_version then
+    cecho("\n[<cyan>ShipDB<reset>] <red>Update check failed - could not parse version from GitHub<reset>\n")
+    return
+  end
+
+  -- Compare versions
+  local comparison = shipdb.compareVersions(shipdb.config.version, latest_version)
+
+  if comparison < 0 then
+    -- Update available
+    local download_url = content:match('"browser_download_url"%s*:%s*"([^"]+%.mpackage)"')
+    if not download_url then
+      -- No .mpackage found, just show release page
+      local release_url = string.format("https://github.com/%s/releases/latest", shipdb.config.github_repo)
+      cecho("\n[<cyan>ShipDB<reset>] <green>Update available!<reset> <yellow>v" .. shipdb.config.version .. "<reset> → <white>" .. latest_version .. "<reset>\n")
+      cecho("[<cyan>ShipDB<reset>] Download from: <cyan>" .. release_url .. "<reset>\n")
+      return
+    end
+
+    -- Store the download info
+    shipdb.pending_update = {
+      version = latest_version,
+      url = download_url
+    }
+
+    -- Show update popup
+    shipdb.showUpdatePopup(latest_version)
+  else
+    cecho("\n[<cyan>ShipDB<reset>] You are running the latest version (<white>v" .. shipdb.config.version .. "<reset>)\n")
+  end
+end
+
+-- Show update popup with Yes/No buttons
+function shipdb.showUpdatePopup(latest_version)
+  -- Close existing popup if any
+  if shipdb.update_popup then
+    shipdb.update_popup:hide()
+    shipdb.update_popup = nil
+  end
+
+  -- Create background overlay as a Label (supports setStyleSheet)
+  shipdb.update_popup = Geyser.Label:new({
+    name = "shipdb_update_popup",
+    x = "0", y = "0",
+    width = "100%", height = "100%",
+  })
+
+  shipdb.update_popup:setStyleSheet([[
+    background-color: rgba(0, 0, 0, 180);
+  ]])
+
+  -- Create the dialog box (centered within the overlay)
+  -- Using percentage with offset: 50% minus half the width/height
+  shipdb.update_dialog = Geyser.Label:new({
+    name = "shipdb_update_dialog",
+    x = "40%", y = "40%",
+    width = "500px", height = "300px",
+  }, shipdb.update_popup)
+
+  shipdb.update_dialog:setStyleSheet([[
+    background-color: rgb(47, 49, 54);
+    border: 2px solid rgb(100, 105, 115);
+    border-radius: 10px;
+  ]])
+
+  -- Title
+  local title = Geyser.Label:new({
+    name = "shipdb_update_title",
+    x = 0, y = "10px",
+    width = "100%", height = "40px",
+  }, shipdb.update_dialog)
+
+  title:setStyleSheet([[
+    background-color: transparent;
+    color: rgb(88, 214, 141);
+    font-size: 18pt;
+    font-weight: bold;
+    qproperty-alignment: 'AlignCenter';
+  ]])
+  title:echo("ShipDB Update Available!")
+
+  -- Message
+  local message = Geyser.Label:new({
+    name = "shipdb_update_message",
+    x = "20px", y = "60px",
+    width = "460px", height = "120px",
+  }, shipdb.update_dialog)
+
+  message:setStyleSheet([[
+    background-color: transparent;
+    color: rgb(220, 220, 220);
+    font-size: 12pt;
+    qproperty-alignment: 'AlignCenter';
+  ]])
+
+  local msg_text = string.format("Current Version: v%s\nLatest Version: %s\n\nWould you like to download and install it now?\n(Mudlet will need to be restarted after installation)",
+    shipdb.config.version, latest_version)
+  message:echo(msg_text)
+
+  -- Yes button
+  local yes_button = Geyser.Label:new({
+    name = "shipdb_update_yes",
+    x = "80px", y = "220px",
+    width = "150px", height = "50px",
+  }, shipdb.update_dialog)
+
+  yes_button:setStyleSheet([[
+    QLabel {
+      background-color: rgb(88, 214, 141);
+      border: 1px solid rgb(70, 180, 120);
+      border-radius: 5px;
+      color: rgb(0, 0, 0);
+      font-size: 14pt;
+      font-weight: bold;
+      qproperty-alignment: 'AlignCenter';
+    }
+    QLabel:hover {
+      background-color: rgb(100, 230, 160);
+    }
+  ]])
+  yes_button:echo("Yes")
+  yes_button:setClickCallback(function()
+    if shipdb.update_popup then
+      shipdb.update_popup:hide()
+      shipdb.update_popup = nil
+    end
+    shipdb.confirmUpdateInstall()
+  end)
+
+  -- No button
+  local no_button = Geyser.Label:new({
+    name = "shipdb_update_no",
+    x = "270px", y = "220px",
+    width = "150px", height = "50px",
+  }, shipdb.update_dialog)
+
+  no_button:setStyleSheet([[
+    QLabel {
+      background-color: rgb(64, 68, 75);
+      border: 1px solid rgb(100, 105, 115);
+      border-radius: 5px;
+      color: rgb(220, 220, 220);
+      font-size: 14pt;
+      font-weight: bold;
+      qproperty-alignment: 'AlignCenter';
+    }
+    QLabel:hover {
+      background-color: rgb(80, 85, 95);
+    }
+  ]])
+  no_button:echo("No")
+  no_button:setClickCallback(function()
+    if shipdb.update_popup then
+      shipdb.update_popup:hide()
+      shipdb.update_popup = nil
+    end
+    cecho("\n[<cyan>ShipDB<reset>] Update cancelled. Run <white>shipdb update<reset> again later to install.\n")
+    shipdb.pending_update = nil
+  end)
+end
+
+-- Confirm and start the update installation
+function shipdb.confirmUpdateInstall()
+  if not shipdb.pending_update then
+    return
+  end
+
+  local version = shipdb.pending_update.version
+  local url = shipdb.pending_update.url
+  local filename = getMudletHomeDir() .. "/ShipDB_" .. version .. ".mpackage"
+
+  cecho("\n[<cyan>ShipDB<reset>] Downloading <white>" .. version .. "<reset>...\n")
+
+  -- Register event handler for download completion
+  if shipdb.install_handler then
+    killAnonymousEventHandler(shipdb.install_handler)
+  end
+  shipdb.install_handler = registerAnonymousEventHandler("sysDownloadDone", "shipdb.handleInstallDownload")
+
+  -- Store the filename for the handler
+  shipdb.install_filename = filename
+
+  -- Download the package
+  downloadFile(filename, url)
+end
+
+-- Handle the downloaded package
+function shipdb.handleInstallDownload(event, filename)
+  -- Only handle our install download
+  if not filename or filename ~= shipdb.install_filename then
+    return
+  end
+
+  -- Kill the event handler
+  if shipdb.install_handler then
+    killAnonymousEventHandler(shipdb.install_handler)
+    shipdb.install_handler = nil
+  end
+
+  cecho("\n[<cyan>ShipDB<reset>] <green>Download complete!<reset> Installing package...\n")
+
+  -- Uninstall old version first for clean update
+  uninstallPackage("ShipDB")
+
+  -- Install the new package and check result
+  local success = installPackage(filename)
+
+  if success then
+    cecho("[<cyan>ShipDB<reset>] <green>Installation complete!<reset> Package will be active after you restart Mudlet.\n")
+  else
+    cecho("[<cyan>ShipDB<reset>] <red>Installation failed!<reset> Please try downloading manually from:\n")
+    cecho("[<cyan>ShipDB<reset>] <cyan>https://github.com/" .. shipdb.config.github_repo .. "/releases/latest<reset>\n")
+  end
+
+  -- Clear pending update
+  shipdb.pending_update = nil
+  shipdb.install_filename = nil
+end
+
+-- Check for updates from GitHub
+function shipdb.checkForUpdates(force, silent)
+  if not force and shipdb.config.update_check_done then
+    return  -- Only check once per session unless forced
+  end
+
+  shipdb.config.update_check_done = true
+
+  -- Only show message if not silent (manual checks show it, auto checks don't)
+  if not silent then
+    cecho("\n[<cyan>ShipDB<reset>] Checking for updates...\n")
+  end
+
+  local api_url = string.format("https://api.github.com/repos/%s/releases/latest", shipdb.config.github_repo)
+  local temp_file = getMudletHomeDir() .. "/shipdb_update_check.json"
+
+  -- Register event handler for download completion
+  if shipdb.update_check_handler then
+    killAnonymousEventHandler(shipdb.update_check_handler)
+  end
+  shipdb.update_check_handler = registerAnonymousEventHandler("sysDownloadDone", "shipdb.handleUpdateCheck")
+
+  -- Download the GitHub API response
+  downloadFile(temp_file, api_url)
+end
+
+-- Manual update check (can be called anytime by user)
+function shipdb.manualUpdateCheck()
+  shipdb.checkForUpdates(true, false)  -- Force check, not silent
+end
+
 -- Register event handler for character changes (persistent, not one-shot)
 if shipdb.eventid == nil then
   shipdb.eventid = registerAnonymousEventHandler("gmcp.Char.Info", shipdb.load)
   shipdb.debug("Registered event handler for gmcp.Char.Info")
 end
+
+-- Check for updates on load (once per session, silently)
+shipdb.checkForUpdates(false, true)

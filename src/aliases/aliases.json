@@ -47,5 +47,12 @@
               "regex": "^shipdb help$",
               "script": "",
               "isFolder": "no"
+       },
+       {
+              "name": "shipdbUpdate",
+              "isActive": "yes",
+              "regex": "^shipdb update$",
+              "script": "",
+              "isFolder": "no"
        }
 ]

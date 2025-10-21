@@ -92,6 +92,14 @@ shipdb sort planet        Sort by planet location
 shipdb sort time          Sort by discovery time
 ```
 
+### Updates
+
+```
+shipdb update             Check for package updates
+```
+
+ShipDB automatically checks for updates when the package loads. Use this command to manually check for updates at any time.
+
 ### Debug Mode
 
 ```
