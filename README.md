@@ -335,6 +335,19 @@ This package is distributed under the MIT License. See LICENSE for details.
 
 ## Changelog
 
+### Version 1.0.2
+- Added pagination system (100 records per page by default)
+- Added pagination navigation buttons with visual disabled states
+- Added active filter display in info label
+- Added automatic update checker on package load
+- Added manual update check command (`shipdb update`)
+- Added automatic update installation with popup confirmation
+- Version detection via `getPackageInfo()` for accurate update tracking
+- Fixed help menu text alignment
+
+### Version 1.0.1
+- Minor bug fixes and improvements
+
 ### Version 1.0.0
 - Initial release
 - Dual Ships/History view system
