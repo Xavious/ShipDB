@@ -899,7 +899,22 @@ function shipdb.deleteShip(shipName)
   if ships and #ships > 0 then
     -- Delete the actual ship object (which contains _row_id)
     db:delete(shipdb.db.ships, ships[1])
-    cecho(string.format("\n[<cyan>ShipDB<reset>] Deleted ship <red>%s<reset>.\n", shipName))
+
+    -- Also delete all docking records for this ship
+    local docking_records = db:fetch(shipdb.db.docking_records, {
+      db:eq(shipdb.db.docking_records.character, charName),
+      db:eq(shipdb.db.docking_records.name, shipName)
+    })
+
+    if docking_records then
+      for _, record in ipairs(docking_records) do
+        db:delete(shipdb.db.docking_records, record)
+      end
+      cecho(string.format("\n[<cyan>ShipDB<reset>] Deleted ship <red>%s<reset> and %d docking record(s).\n", shipName, #docking_records))
+    else
+      cecho(string.format("\n[<cyan>ShipDB<reset>] Deleted ship <red>%s<reset>.\n", shipName))
+    end
+
     shipdb.updateWindow()
   else
     cecho(string.format("\n[<cyan>ShipDB<reset>] Ship <red>%s<reset> not found.\n", shipName))
