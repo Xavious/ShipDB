@@ -1214,10 +1214,15 @@ function shipdb.showUpdatePopup(latest_version)
     color: rgb(220, 220, 220);
     font-size: 12pt;
     qproperty-alignment: 'AlignCenter';
+    qproperty-wordWrap: true;
   ]])
 
-  local msg_text = string.format("Current Version: v%s\nLatest Version: %s\n\nWould you like to download and install it now?\n(Mudlet will need to be restarted after installation)",
-    shipdb.config.version, latest_version)
+  local msg_text = string.format([[<p style="text-align: center; line-height: 1.5;">
+Current Version: v%s<br/>
+Latest Version: %s<br/>
+<br/>
+Would you like to download and install it now?
+</p>]], shipdb.config.version, latest_version)
   message:echo(msg_text)
 
   -- Yes button
@@ -1329,7 +1334,7 @@ function shipdb.handleInstallDownload(event, filename)
   local success = installPackage(filename)
 
   if success then
-    cecho("[<cyan>ShipDB<reset>] <green>Installation complete!<reset> Package will be active after you restart Mudlet.\n")
+    cecho("[<cyan>ShipDB<reset>] <green>Installation complete!<reset> The updated package is now active.\n")
   else
     cecho("[<cyan>ShipDB<reset>] <red>Installation failed!<reset> Please try downloading manually from:\n")
     cecho("[<cyan>ShipDB<reset>] <cyan>https://github.com/" .. shipdb.config.github_repo .. "/releases/latest<reset>\n")
@@ -1341,17 +1346,12 @@ function shipdb.handleInstallDownload(event, filename)
 end
 
 -- Check for updates from GitHub
-function shipdb.checkForUpdates(force, silent)
+function shipdb.checkForUpdates(force)
   if not force and shipdb.config.update_check_done then
     return  -- Only check once per session unless forced
   end
 
   shipdb.config.update_check_done = true
-
-  -- Only show message if not silent (manual checks show it, auto checks don't)
-  if not silent then
-    cecho("\n[<cyan>ShipDB<reset>] Checking for updates...\n")
-  end
 
   local api_url = string.format("https://api.github.com/repos/%s/releases/latest", shipdb.config.github_repo)
   local temp_file = getMudletHomeDir() .. "/shipdb_update_check.json"
@@ -1368,7 +1368,8 @@ end
 
 -- Manual update check (can be called anytime by user)
 function shipdb.manualUpdateCheck()
-  shipdb.checkForUpdates(true, false)  -- Force check, not silent
+  cecho("\n[<cyan>ShipDB<reset>] Checking for updates...\n")
+  shipdb.checkForUpdates(true)  -- Force check
 end
 
 -- Register event handler for character changes (persistent, not one-shot)
@@ -1377,5 +1378,5 @@ if shipdb.eventid == nil then
   shipdb.debug("Registered event handler for gmcp.Char.Info")
 end
 
--- Check for updates on load (once per session, silently)
-shipdb.checkForUpdates(false, true)
+-- Check for updates on load (once per session)
+shipdb.checkForUpdates(false)
