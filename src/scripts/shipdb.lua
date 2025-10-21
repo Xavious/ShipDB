@@ -3,7 +3,6 @@ shipdb = shipdb or {}
 -- Configuration
 shipdb.config = shipdb.config or {
   -- Version settings
-  version = "1.0.0",
   github_repo = "Xavious/ShipDB",
   update_check_done = false,
 
@@ -1062,6 +1061,15 @@ function shipdb.updateHistoryView()
   shipdb.table:assemble()
 end
 
+-- Get current installed version from package info
+function shipdb.getCurrentVersion()
+  local package_info = getPackageInfo("ShipDB")
+  if package_info and package_info.version then
+    return package_info.version
+  end
+  return "unknown"
+end
+
 -- Version comparison function (semantic versioning)
 function shipdb.compareVersions(v1, v2)
   -- Remove 'v' prefix if present
@@ -1126,8 +1134,11 @@ function shipdb.handleUpdateCheck(event, filename)
     return
   end
 
+  -- Get current installed version
+  local current_version = shipdb.getCurrentVersion()
+
   -- Compare versions
-  local comparison = shipdb.compareVersions(shipdb.config.version, latest_version)
+  local comparison = shipdb.compareVersions(current_version, latest_version)
 
   if comparison < 0 then
     -- Update available
@@ -1135,7 +1146,7 @@ function shipdb.handleUpdateCheck(event, filename)
     if not download_url then
       -- No .mpackage found, just show release page
       local release_url = string.format("https://github.com/%s/releases/latest", shipdb.config.github_repo)
-      cecho("\n[<cyan>ShipDB<reset>] <green>Update available!<reset> <yellow>v" .. shipdb.config.version .. "<reset> → <white>" .. latest_version .. "<reset>\n")
+      cecho("\n[<cyan>ShipDB<reset>] <green>Update available!<reset> <yellow>v" .. current_version .. "<reset> → <white>" .. latest_version .. "<reset>\n")
       cecho("[<cyan>ShipDB<reset>] Download from: <cyan>" .. release_url .. "<reset>\n")
       return
     end
@@ -1147,14 +1158,14 @@ function shipdb.handleUpdateCheck(event, filename)
     }
 
     -- Show update popup
-    shipdb.showUpdatePopup(latest_version)
+    shipdb.showUpdatePopup(current_version, latest_version)
   else
-    cecho("\n[<cyan>ShipDB<reset>] You are running the latest version (<white>v" .. shipdb.config.version .. "<reset>)\n")
+    cecho("\n[<cyan>ShipDB<reset>] You are running the latest version (<white>v" .. current_version .. "<reset>)\n")
   end
 end
 
 -- Show update popup with Yes/No buttons
-function shipdb.showUpdatePopup(latest_version)
+function shipdb.showUpdatePopup(current_version, latest_version)
   -- Close existing popup if any
   if shipdb.update_popup then
     shipdb.update_popup:hide()
@@ -1222,7 +1233,7 @@ Current Version: v%s<br/>
 Latest Version: %s<br/>
 <br/>
 Would you like to download and install it now?
-</p>]], shipdb.config.version, latest_version)
+</p>]], current_version, latest_version)
   message:echo(msg_text)
 
   -- Yes button
