@@ -872,6 +872,15 @@ function shipdb.load()
 
   local currentChar = gmcp.Char.Info.name
 
+  -- If character hasn't changed, don't reload
+  if shipdb.current_character and shipdb.current_character == currentChar then
+    shipdb.debug("shipdb.load: Character unchanged (" .. currentChar .. "), skipping reload")
+    return
+  end
+
+  -- Update current character
+  shipdb.current_character = currentChar
+
   -- Load ships for current character
   local ship_count = #db:fetch(shipdb.db.ships, db:eq(shipdb.db.ships.character, currentChar))
   cecho("\n[<cyan>ShipDB<reset>] Loaded <yellow>"..ship_count.."<reset> ships for <red>"..currentChar.."<reset>\n")
