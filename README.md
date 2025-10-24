@@ -335,18 +335,27 @@ This package is distributed under the MIT License. See LICENSE for details.
 
 ## Changelog
 
+### Version 1.0.4
+- Improved character switching: Prevents unnecessary reloads when gmcp.Char.Info fires
+- Added profile reload note in update installation message
+
+### Version 1.0.3
+- Added cascade delete: Deleting a ship now also deletes all associated docking records
+- Version detection now uses `getPackageInfo()` for accurate tracking
+- Removed hardcoded version from config
+
 ### Version 1.0.2
 - Added pagination system (100 records per page by default)
 - Added pagination navigation buttons with visual disabled states
 - Added active filter display in info label
 - Added automatic update checker on package load
 - Added manual update check command (`shipdb update`)
-- Added automatic update installation with popup confirmation
-- Version detection via `getPackageInfo()` for accurate update tracking
+- Added automatic update installation with Geyser popup confirmation
 - Fixed help menu text alignment
+- Pagination resets when changing views, filters, or sorting
 
 ### Version 1.0.1
-- Minor bug fixes and improvements
+- Bug fixes and stability improvements
 
 ### Version 1.0.0
 - Initial release
