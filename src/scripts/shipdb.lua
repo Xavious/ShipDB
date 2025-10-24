@@ -1370,6 +1370,7 @@ function shipdb.handleInstallDownload(event, filename)
 
   if success then
     cecho("[<cyan>ShipDB<reset>] <green>Installation complete!<reset> The updated package is now active.\n")
+    cecho("[<cyan>ShipDB<reset>] <yellow>Note:<reset> If you experience issues, try reloading your profile.\n")
   else
     cecho("[<cyan>ShipDB<reset>] <red>Installation failed!<reset> Please try downloading manually from:\n")
     cecho("[<cyan>ShipDB<reset>] <cyan>https://github.com/" .. shipdb.config.github_repo .. "/releases/latest<reset>\n")
