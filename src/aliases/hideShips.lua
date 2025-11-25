@@ -1,1 +1,1 @@
-shipdb.hideWindow()
+shipdb.hide()

@@ -887,13 +887,14 @@ function shipdb.load()
   shipdb.updateWindow()
 end
 
-function shipdb.showWindow()
-  shipdb.debug("shipdb.showWindow")
+function shipdb.show()
+  shipdb.debug("shipdb.show")
   shipdb.container:show()
+  shipdb.container:raiseAll()
 end
 
-function shipdb.hideWindow()
-  shipdb.debug("shipdb.hideWindow")
+function shipdb.hide()
+  shipdb.debug("shipdb.hide")
   shipdb.container:hide()
 end
 

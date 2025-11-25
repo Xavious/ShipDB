@@ -1,1 +1,1 @@
-shipdb.showWindow()
+shipdb.show()
