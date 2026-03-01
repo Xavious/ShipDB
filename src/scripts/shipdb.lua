@@ -784,8 +784,8 @@ function shipdb.triggerShipLocated()
   ship.type = multimatches[2].type or ""
   ship.name = multimatches[2].name or ""
   ship.owner = multimatches[3].owner or ""
-  ship.dock =  multimatches[4].dock or ""
-  ship.planet = multimatches[5].planet or ""
+  ship.dock =  multimatches[5].dock or ""
+  ship.planet = multimatches[6].planet or ""
   ship.time = getTime(true, "yyyy-MM-dd hh:mm")
 
   shipdb.debug("Character: "..ship.character)
