@@ -15,6 +15,7 @@ shipdb.config = shipdb.config or {
 
   -- Search/filter settings
   search_filter = "",
+  search_field = nil,   -- nil = all fields; set to a field name when clicking a cell
 
   -- Pagination settings
   records_per_page = 100,
@@ -257,6 +258,7 @@ shipdb.search_box = Geyser.CommandLine:new({
 -- Set up search box behavior
 shipdb.search_box:setAction(function(input)
   shipdb.config.search_filter = input:lower()
+  shipdb.config.search_field = nil  -- manual search always covers all fields
   shipdb.config.current_page = 1  -- Reset pagination when searching
   shipdb.updateWindow()
 end)
@@ -495,8 +497,9 @@ shipdb.console = Geyser.MiniConsole:new({
   height = shipdb.config.ui.console.height
 }, shipdb.container)
 
--- Filter ships based on search text (case-insensitive, partial match across all fields)
-function shipdb.filterShips(ships, searchText)
+-- Filter ships based on search text (case-insensitive, partial match)
+-- If searchField is set, only matches against that field; otherwise searches all fields
+function shipdb.filterShips(ships, searchText, searchField)
   if not searchText or searchText == "" then
     return ships
   end
@@ -505,17 +508,22 @@ function shipdb.filterShips(ships, searchText)
   local search = searchText:lower()
 
   for _, ship in ipairs(ships) do
-    -- Search across all fields
-    local searchable = string.format("%s %s %s %s %s %s",
-      ship.type:lower(),
-      ship.name:lower(),
-      ship.owner:lower(),
-      ship.planet:lower(),
-      ship.dock:lower(),
-      ship.time:lower()
-    )
+    local match = false
+    if searchField and ship[searchField] then
+      match = ship[searchField]:lower():find(search, 1, true) ~= nil
+    else
+      local searchable = string.format("%s %s %s %s %s %s",
+        (ship.type or ""):lower(),
+        (ship.name or ""):lower(),
+        (ship.owner or ""):lower(),
+        (ship.planet or ""):lower(),
+        (ship.dock or ""):lower(),
+        (ship.time or ""):lower()
+      )
+      match = (searchable):find(search, 1, true) ~= nil
+    end
 
-    if searchable:find(search, 1, true) then
+    if match then
       table.insert(filtered, ship)
     end
   end
@@ -554,18 +562,19 @@ function shipdb.viewShipHistory(shipName)
   shipdb.updateWindow()
 end
 
--- Set filter to a specific value (like clicking a field)
-function shipdb.setFilter(value)
-  shipdb.debug("shipdb.setFilter: " .. value)
+-- Set filter to a specific value and optionally restrict to a single field
+function shipdb.setFilter(value, field)
+  shipdb.debug("shipdb.setFilter: " .. value .. (field and (" [field=" .. field .. "]") or ""))
   shipdb.config.search_filter = value:lower()
-  shipdb.config.current_page = 1  -- Reset pagination when filtering
-  -- Don't change view mode - filter works in current view
+  shipdb.config.search_field = field or nil
+  shipdb.config.current_page = 1
   shipdb.updateWindow()
 end
 
 -- Clear search filter (stay in current view)
 function shipdb.clearSearch()
   shipdb.config.search_filter = ""
+  shipdb.config.search_field = nil
   shipdb.config.current_page = 1  -- Reset pagination
   -- If in history view and viewing a specific ship, clear that filter too
   if shipdb.config.view_mode == "history" and shipdb.config.history_ship then
@@ -704,7 +713,7 @@ function shipdb.updateShipsView()
   local total_ships = #sorted_ships
 
   -- Apply search filter
-  local filtered_ships = shipdb.filterShips(sorted_ships, shipdb.config.search_filter)
+  local filtered_ships = shipdb.filterShips(sorted_ships, shipdb.config.search_filter, shipdb.config.search_field)
   local filtered_count = #filtered_ships
 
   -- Apply pagination
@@ -720,7 +729,11 @@ function shipdb.updateShipsView()
   -- Build filter display string
   local filter_text = ""
   if shipdb.config.search_filter ~= "" then
-    filter_text = string.format(" | Filter: '%s'", shipdb.config.search_filter)
+    if shipdb.config.search_field then
+      filter_text = string.format(" | Filter %s:'%s'", shipdb.config.search_field, shipdb.config.search_filter) or ""
+    else
+      filter_text = string.format(" | Filter: '%s'", shipdb.config.search_filter) or ""
+    end
   end
 
   if shipdb.config.search_filter ~= "" and filtered_count < total_ships then
@@ -738,11 +751,11 @@ function shipdb.updateShipsView()
   end
 
   for _, ship in ipairs(page_ships) do
-    -- Create filter functions for each field
-    local filter_type = function() shipdb.setFilter(ship.type) end
-    local filter_owner = function() shipdb.setFilter(ship.owner) end
-    local filter_planet = function() shipdb.setFilter(ship.planet) end
-    local filter_dock = function() shipdb.setFilter(ship.dock) end
+    -- Create filter functions for each field (field-scoped)
+    local filter_type = function() shipdb.setFilter(ship.type, "type") end
+    local filter_owner = function() shipdb.setFilter(ship.owner, "owner") end
+    local filter_planet = function() shipdb.setFilter(ship.planet, "planet") end
+    local filter_dock = function() shipdb.setFilter(ship.dock, "dock") end
 
     -- Other action functions
     local delete_ship = function() shipdb.deleteShip(ship.name) end
@@ -806,6 +819,7 @@ function shipdb.triggerShipLocated()
   if existing and #existing > 0 then
     -- Update existing ship record
     local existing_ship = existing[1]
+    local old = {type = existing_ship.type, owner = existing_ship.owner, planet = existing_ship.planet, dock = existing_ship.dock, time = existing_ship.time}
     existing_ship.type = ship.type
     existing_ship.owner = ship.owner
     existing_ship.planet = ship.planet
@@ -818,7 +832,15 @@ function shipdb.triggerShipLocated()
       cecho("\n[<cyan>ShipDB<reset>] <red>ERROR updating ship:<reset> "..tostring(err).."\n")
     else
       shipdb.debug("Ship updated successfully")
-      cecho("\n[<cyan>ShipDB<reset>] Updating <red>"..ship.name.."<reset>. Toggle window display with <yellow>showships<reset> and <yellow>hideships<reset>\n")
+      local changes = {}
+      for _, field in ipairs({"type", "owner", "planet", "dock", "time"}) do
+        if old[field] ~= ship[field] then
+          table.insert(changes, "\n<reset>[<cyan>ShipDB<reset>] "..field..": <yellow>"..tostring(old[field]).." <reset>-> <green>"..tostring(ship[field]))
+        end
+      end
+      local change_str = #changes > 0 and  table.concat(changes) or ""
+      cecho("\n[<cyan>ShipDB<reset>] Updating <red>"..ship.name.."<reset>"..change_str)
+      cecho("\n[<cyan>ShipDB<reset>] Toggle window display with <yellow>showships<reset> and <yellow>hideships<reset>\n")
     end
   else
     -- Add new ship to database
@@ -982,7 +1004,7 @@ function shipdb.updateHistoryView()
 
   -- Apply search filter to records
   local total_records = #records
-  local filtered_records = shipdb.filterShips(records, shipdb.config.search_filter)
+  local filtered_records = shipdb.filterShips(records, shipdb.config.search_filter, shipdb.config.search_field)
   local filtered_count = #filtered_records
 
   -- Sort records using the current sort settings
@@ -1007,7 +1029,11 @@ function shipdb.updateHistoryView()
   -- Build filter display string
   local filter_text = ""
   if shipdb.config.search_filter ~= "" then
-    filter_text = string.format(" | Filter: '%s'", shipdb.config.search_filter)
+    if shipdb.config.search_field then
+      filter_text = string.format(" | Filter %s:'%s'", shipdb.config.search_field, shipdb.config.search_filter) or ""
+    else
+      filter_text = string.format(" | Filter: '%s'", shipdb.config.search_filter) or ""
+    end
   end
 
   -- Update info label based on view type
@@ -1065,11 +1091,11 @@ function shipdb.updateHistoryView()
 
   -- Add each docking record with clickable filters
   for _, record in ipairs(page_records) do
-    local filter_type = function() shipdb.setFilter(record.type) end
-    local filter_name = function() shipdb.setFilter(record.name) end
-    local filter_owner = function() shipdb.setFilter(record.owner) end
-    local filter_planet = function() shipdb.setFilter(record.planet) end
-    local filter_dock = function() shipdb.setFilter(record.dock) end
+    local filter_type = function() shipdb.setFilter(record.type, "type") end
+    local filter_name = function() shipdb.setFilter(record.name, "name") end
+    local filter_owner = function() shipdb.setFilter(record.owner, "owner") end
+    local filter_planet = function() shipdb.setFilter(record.planet, "planet") end
+    local filter_dock = function() shipdb.setFilter(record.dock, "dock") end
     local delete_record = function() shipdb.deleteDockingRecord(record) end
 
     shipdb.table:addRow({
