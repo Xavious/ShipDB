@@ -17,7 +17,7 @@
                             "type": "substring"
                      },
                      {
-                            "pattern": "^Ship Information: (?\u003ctype\u003e[a-zA-Z0-9 \\-]+) \\'(?\u003cname\u003e[a-zA-Z0-9 ]+)\\'$",
+                            "pattern": "^Ship Information: (?\u003ctype\u003e[a-zA-Z0-9 \\-\/]+) \\'(?\u003cname\u003e[a-zA-Z0-9 ]+)\\'$",
                             "type": "regex"
                      },
                      {
