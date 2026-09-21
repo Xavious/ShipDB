@@ -2,7 +2,7 @@
        "package": "ShipDB",
        "title": "ShipDB",
        "description": "",
-       "version": "1.0.6",
+       "version": "1.0.7",
        "author": "Xavious",
        "icon": "shipdb_icon.png",
        "dependencies": "",
